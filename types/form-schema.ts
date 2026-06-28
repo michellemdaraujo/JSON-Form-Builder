@@ -59,7 +59,8 @@ export type NumberField = BaseField & {
 
 export type CheckboxField = BaseField & {
   type: "checkbox";
-  defaultValue?: boolean;
+  options: FieldOption[];
+  defaultValue?: string[];
 };
 
 export type DateField = BaseField & {
