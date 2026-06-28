@@ -28,7 +28,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 Three-column layout: field cards (left), live preview (center), JSON schema (right).
 
-All state lives in `FormBuilder` as a single `FormSchema` object, passed to children via props. The editor sidebar works with a local draft — changes only apply when the user clicks "Add Field" or "Save Changes", preventing incomplete fields from breaking the preview.
+The builder keeps a single `FormSchema` in `FormBuilder` and passes it to child components via props. The editor sidebar maintains a local draft so incomplete edits don't affect the live preview until explicitly saved.
 
 The live preview builds a Zod schema from field definitions on every change via `useMemo`, then passes it to `react-hook-form` through `zodResolver`.
 
@@ -74,10 +74,9 @@ The live preview builds a Zod schema from field definitions on every change via 
 
 The following items were out of scope for the challenge timebox but are things I'd address next.
 
-**Bugs I'm aware of:**
-- `ctx.addIssue()` in the JSON import `superRefine` may need `{ code: "custom", message }` instead of a plain string in Zod v4
-- Deleting a field referenced in conditional visibility leaves a dangling reference (field stays hidden)
-- Changing field type doesn't strip old properties (e.g. `options` remains when switching from select to text)
+**Known limitations:**
+- Deleting a field referenced by conditional visibility leaves a dangling reference — the dependent field stays hidden
+- Changing a field type preserves obsolete properties (e.g. `options` remains after switching from select to text)
 
 **Features & improvements:**
 - Tests — unit tests for `buildZodSchema`, component tests with Testing Library, E2E with Playwright
@@ -85,9 +84,22 @@ The following items were out of scope for the challenge timebox but are things I
 - Responsiveness — basic responsive layout is in place (single-column stacking on small screens), but could be improved with max-width for ultra-wide screens and better mobile UX for the sidebar and modals
 - Deeper import validation — cross-validate conditional visibility references, ensure choice fields have options
 - More validation rules — min/max date, custom rules beyond built-in presets
-- Auto-save option — persist to localStorage on every edit instead of requiring manual save
+- Optional auto-save mode — allow users to enable or disable auto-saving based on their workflow, rather than requiring manual save
+- Unsaved changes protection — warn before closing or refreshing the page when there are unsaved changes, and before closing the field editor sidebar with unsaved edits
 - More conditional operators — greater than, less than, contains, range
 - Live JSON editing — edit the form by modifying JSON directly with two-way sync
 - Drag-and-drop for options — reorder select/radio/checkbox options
 - Undo/redo — reducer with history stack
-- Performance — reduce LCP (currently 7.3s due to client-side dynamic import), loading skeleton
+- Reduce bundle size and optimize the initial render
+- Add loading skeletons where appropriate
+
+## Production Considerations
+
+What I would prioritize before shipping to production:
+
+- Authentication and server-side persistence
+- Automated testing (unit, integration, and E2E)
+- Schema versioning and migration
+- Error monitoring and analytics
+- Accessibility audit (WCAG AA compliance)
+- Performance profiling and optimization
