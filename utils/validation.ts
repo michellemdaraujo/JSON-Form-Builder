@@ -74,13 +74,60 @@ function buildFieldSchema(field: FormField): z.ZodType {
   }
 }
 
-function isFieldVisible(
+export function isFieldVisible(
   field: FormField,
   values: Record<string, unknown>,
 ): boolean {
-  if (!field.conditionalVisibility) return true;
-  const { fieldName, value } = field.conditionalVisibility;
-  return String(values[fieldName] ?? "") === String(value);
+  const cv = field.conditionalVisibility;
+  if (!cv) return true;
+
+  const fieldValue = values[cv.fieldName];
+
+  switch (cv.conditionType) {
+    case "text": {
+      const str = String(fieldValue ?? "");
+      const results = cv.rules.map((rule) => {
+        if (rule.operator === "equals") return str === rule.value;
+        return str.includes(rule.value);
+      });
+      return cv.logic === "and"
+        ? results.every(Boolean)
+        : results.some(Boolean);
+    }
+    case "number": {
+      const num = Number(fieldValue);
+      if (Number.isNaN(num)) return false;
+      const results = cv.rules.map((rule) => {
+        switch (rule.operator) {
+          case "eq": return num === rule.value;
+          case "lt": return num < rule.value;
+          case "gt": return num > rule.value;
+          case "lte": return num <= rule.value;
+          case "gte": return num >= rule.value;
+        }
+      });
+      return cv.logic === "and"
+        ? results.every(Boolean)
+        : results.some(Boolean);
+    }
+    case "choice": {
+      if (cv.values.length === 0) return false;
+      if (Array.isArray(fieldValue)) {
+        const matches = cv.values.filter((v) => fieldValue.includes(v));
+        return cv.logic === "and"
+          ? matches.length === cv.values.length
+          : matches.length > 0;
+      }
+      return cv.values.includes(String(fieldValue ?? ""));
+    }
+    case "date": {
+      const dateStr = String(fieldValue ?? "");
+      if (!dateStr) return false;
+      if (cv.start && dateStr < cv.start) return false;
+      if (cv.end && dateStr > cv.end) return false;
+      return !!(cv.start || cv.end);
+    }
+  }
 }
 
 function buildPermissiveSchema(field: FormField): z.ZodType {

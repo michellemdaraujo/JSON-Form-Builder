@@ -19,10 +19,43 @@ const validationSchema = z.object({
   custom: z.enum(["email", "url", "lettersOnly"] as [string, ...string[]]).optional(),
 });
 
-const conditionalSchema = z.object({
-  fieldName: z.string(),
-  value: z.union([z.string(), z.number(), z.boolean()]),
+const textRuleSchema = z.object({
+  operator: z.enum(["equals", "includes"]),
+  value: z.string(),
 });
+
+const numberRuleSchema = z.object({
+  operator: z.enum(["eq", "lt", "gt", "lte", "gte"]),
+  value: z.number(),
+});
+
+const conditionalSchema = z.discriminatedUnion("conditionType", [
+  z.object({
+    fieldName: z.string(),
+    logic: z.enum(["and", "or"]),
+    conditionType: z.literal("text"),
+    rules: z.array(textRuleSchema).min(1),
+  }),
+  z.object({
+    fieldName: z.string(),
+    logic: z.enum(["and", "or"]),
+    conditionType: z.literal("number"),
+    rules: z.array(numberRuleSchema).min(1),
+  }),
+  z.object({
+    fieldName: z.string(),
+    logic: z.enum(["and", "or"]),
+    conditionType: z.literal("choice"),
+    values: z.array(z.string()),
+  }),
+  z.object({
+    fieldName: z.string(),
+    logic: z.enum(["and", "or"]),
+    conditionType: z.literal("date"),
+    start: z.string().optional(),
+    end: z.string().optional(),
+  }),
+]);
 
 const fieldSchema = z.object({
   id: z.string().min(1, "Field 'id' is required"),

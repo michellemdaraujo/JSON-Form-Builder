@@ -7,15 +7,21 @@ import {
   type FieldType,
   type FormField,
   type CustomRule,
-  type FieldOption,
   type ValidationRule,
   type ConditionalVisibility,
+  type TextConditionRule,
+  type NumberConditionRule,
 } from "@/types/form-schema";
 import { TextField } from "./ui/TextField";
 import { Select } from "./ui/Select";
 import { Checkbox } from "./ui/Checkbox";
 import { Button } from "./ui/Button";
 import { toCamelCase } from "@/utils/to-camel-case";
+import { TextFieldEditor } from "./field-editors/TextFieldEditor";
+import { NumberFieldEditor } from "./field-editors/NumberFieldEditor";
+import { DateFieldEditor } from "./field-editors/DateFieldEditor";
+import { ChoiceFieldEditor } from "./field-editors/ChoiceFieldEditor";
+import { CheckboxFieldEditor } from "./field-editors/CheckboxFieldEditor";
 
 type Props = {
   field: FormField;
@@ -24,14 +30,36 @@ type Props = {
   onUpdate: (updates: Partial<FormField>) => void;
 };
 
+function TypeSpecificEditor({
+  field,
+  errors,
+  onUpdate,
+}: {
+  field: FormField;
+  errors: Record<string, string>;
+  onUpdate: (updates: Partial<FormField>) => void;
+}) {
+  switch (field.type) {
+    case "text":
+    case "textarea":
+      return <TextFieldEditor field={field} onUpdate={onUpdate} />;
+    case "number":
+      return <NumberFieldEditor field={field} onUpdate={onUpdate} />;
+    case "date":
+      return <DateFieldEditor field={field} onUpdate={onUpdate} />;
+    case "select":
+    case "radio":
+      return <ChoiceFieldEditor field={field} errors={errors} onUpdate={onUpdate} />;
+    case "checkbox":
+      return <CheckboxFieldEditor field={field} errors={errors} onUpdate={onUpdate} />;
+  }
+}
+
 export function FieldEditor({ field, allFields, errors, onUpdate }: Props) {
   const [nameManuallyEdited, setNameManuallyEdited] = useState(
     field.name !== "" && field.name !== toCamelCase(field.label),
   );
-  const isChoice = field.type === "select" || field.type === "radio";
   const isCheckbox = field.type === "checkbox";
-  const isNumber = field.type === "number";
-  const isDate = field.type === "date";
 
   const otherFields = allFields.filter((f) => f.id !== field.id);
 
@@ -115,55 +143,7 @@ export function FieldEditor({ field, allFields, errors, onUpdate }: Props) {
         onChange={(e) => onUpdate({ required: e.target.checked })}
       />
 
-      {isCheckbox ? (
-        <CheckboxOptionsEditor
-          options={"options" in field ? field.options : []}
-          defaultValue={(field.defaultValue as string[]) ?? []}
-          onChange={(options) => onUpdate({ options } as Partial<FormField>)}
-          onDefaultChange={(value) =>
-            onUpdate({ defaultValue: value } as Partial<FormField>)
-          }
-          error={errors.options}
-        />
-      ) : isChoice ? (
-        <OptionsEditor
-          options={"options" in field ? field.options : []}
-          defaultValue={(field.defaultValue as string) ?? ""}
-          onChange={(options) => onUpdate({ options } as Partial<FormField>)}
-          onDefaultChange={(value) =>
-            onUpdate({ defaultValue: value } as Partial<FormField>)
-          }
-          error={errors.options}
-        />
-      ) : isNumber ? (
-        <TextField
-          label="Default Value"
-          type="number"
-          value={field.defaultValue != null ? String(field.defaultValue) : ""}
-          onChange={(e) =>
-            onUpdate({
-              defaultValue: e.target.value === "" ? undefined : Number(e.target.value),
-            } as Partial<FormField>)
-          }
-        />
-      ) : isDate ? (
-        <TextField
-          label="Default Value"
-          type="date"
-          value={(field.defaultValue as string) ?? ""}
-          onChange={(e) =>
-            onUpdate({ defaultValue: e.target.value } as Partial<FormField>)
-          }
-        />
-      ) : (
-        <TextField
-          label="Default Value"
-          value={(field.defaultValue as string) ?? ""}
-          onChange={(e) =>
-            onUpdate({ defaultValue: e.target.value } as Partial<FormField>)
-          }
-        />
-      )}
+      <TypeSpecificEditor field={field} errors={errors} onUpdate={onUpdate} />
 
       <ValidationEditor
         validation={field.validation}
@@ -177,212 +157,6 @@ export function FieldEditor({ field, allFields, errors, onUpdate }: Props) {
         otherFields={otherFields}
         onChange={(conditionalVisibility) => onUpdate({ conditionalVisibility })}
       />
-    </div>
-  );
-}
-
-function OptionsEditor({
-  options,
-  defaultValue,
-  onChange,
-  onDefaultChange,
-  error,
-}: {
-  options: FieldOption[];
-  defaultValue: string;
-  onChange: (options: FieldOption[]) => void;
-  onDefaultChange: (value: string) => void;
-  error?: string;
-}) {
-  const [manuallyEditedValues, setManuallyEditedValues] = useState<Set<number>>(
-    () => new Set(options.map((o, i) => (o.value !== "" && o.value !== toCamelCase(o.label) ? i : -1)).filter((i) => i >= 0)),
-  );
-
-  const updateLabel = (idx: number, label: string) => {
-    const next = [...options];
-    const autoFillValue = !manuallyEditedValues.has(idx);
-    next[idx] = { ...next[idx], label, ...(autoFillValue ? { value: toCamelCase(label) } : {}) };
-    onChange(next);
-  };
-
-  const updateValue = (idx: number, value: string) => {
-    setManuallyEditedValues((prev) => new Set(prev).add(idx));
-    const next = [...options];
-    next[idx] = { ...next[idx], value };
-    onChange(next);
-  };
-
-  return (
-    <div>
-      <span className="block text-sm font-medium text-zinc-600 mb-1">
-        Options
-      </span>
-      <div className="space-y-3">
-        {options.map((opt, idx) => {
-          const isDefault = defaultValue === opt.value && opt.value !== "";
-          return (
-            <div key={idx}>
-              <div className="flex gap-2 items-center">
-                <TextField
-                  label="Label"
-                  hideLabel
-                  placeholder="Label"
-                  value={opt.label}
-                  onChange={(e) => updateLabel(idx, e.target.value)}
-                  className="flex-1"
-                />
-                <TextField
-                  label="Value"
-                  hideLabel
-                  placeholder="Value"
-                  value={opt.value}
-                  onChange={(e) => updateValue(idx, e.target.value)}
-                  className="flex-1"
-                />
-                <Button
-                  variant="tertiary"
-                  size="sm"
-                  onClick={() => {
-                    const removed = options.filter((_, i) => i !== idx);
-                    onChange(removed);
-                    if (isDefault) onDefaultChange("");
-                  }}
-                  disabled={options.length <= 1}
-                  className="text-red-400 hover:text-red-600 shrink-0"
-                >
-                  ✕
-                </Button>
-              </div>
-              <label className="flex items-center gap-1.5 ml-1 mt-0.5 text-xs text-zinc-500 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isDefault}
-                  onChange={(e) => onDefaultChange(e.target.checked ? opt.value : "")}
-                  disabled={opt.value === ""}
-                  className="accent-blue-600"
-                />
-                Make default option
-              </label>
-            </div>
-          );
-        })}
-      </div>
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-      <Button
-        variant="tertiary"
-        size="sm"
-        onClick={() => onChange([...options, { label: "", value: "" }])}
-        className="mt-1 text-blue-600 hover:text-blue-800"
-      >
-        + Add option
-      </Button>
-    </div>
-  );
-}
-
-function CheckboxOptionsEditor({
-  options,
-  defaultValue,
-  onChange,
-  onDefaultChange,
-  error,
-}: {
-  options: FieldOption[];
-  defaultValue: string[];
-  onChange: (options: FieldOption[]) => void;
-  onDefaultChange: (value: string[]) => void;
-  error?: string;
-}) {
-  const [manuallyEditedValues, setManuallyEditedValues] = useState<Set<number>>(
-    () => new Set(options.map((o, i) => (o.value !== "" && o.value !== toCamelCase(o.label) ? i : -1)).filter((i) => i >= 0)),
-  );
-
-  const updateLabel = (idx: number, label: string) => {
-    const next = [...options];
-    const autoFillValue = !manuallyEditedValues.has(idx);
-    next[idx] = { ...next[idx], label, ...(autoFillValue ? { value: toCamelCase(label) } : {}) };
-    onChange(next);
-  };
-
-  const updateValue = (idx: number, value: string) => {
-    setManuallyEditedValues((prev) => new Set(prev).add(idx));
-    const next = [...options];
-    next[idx] = { ...next[idx], value };
-    onChange(next);
-  };
-
-  const toggleDefault = (value: string, checked: boolean) => {
-    if (checked) {
-      onDefaultChange([...defaultValue, value]);
-    } else {
-      onDefaultChange(defaultValue.filter((v) => v !== value));
-    }
-  };
-
-  return (
-    <div>
-      <span className="block text-sm font-medium text-zinc-600 mb-1">
-        Options
-      </span>
-      <div className="space-y-3">
-        {options.map((opt, idx) => {
-          const isDefault = opt.value !== "" && defaultValue.includes(opt.value);
-          return (
-            <div key={idx}>
-              <div className="flex gap-2 items-center">
-                <TextField
-                  label="Label"
-                  hideLabel
-                  placeholder="Label"
-                  value={opt.label}
-                  onChange={(e) => updateLabel(idx, e.target.value)}
-                  className="flex-1"
-                />
-                <TextField
-                  label="Value"
-                  hideLabel
-                  placeholder="Value"
-                  value={opt.value}
-                  onChange={(e) => updateValue(idx, e.target.value)}
-                  className="flex-1"
-                />
-                <Button
-                  variant="tertiary"
-                  size="sm"
-                  onClick={() => {
-                    const removed = options.filter((_, i) => i !== idx);
-                    onChange(removed);
-                    if (isDefault) onDefaultChange(defaultValue.filter((v) => v !== opt.value));
-                  }}
-                  disabled={options.length <= 1}
-                  className="text-red-400 hover:text-red-600 shrink-0"
-                >
-                  ✕
-                </Button>
-              </div>
-              <label className="flex items-center gap-1.5 ml-1 mt-0.5 text-xs text-zinc-500 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isDefault}
-                  onChange={(e) => toggleDefault(opt.value, e.target.checked)}
-                  disabled={opt.value === ""}
-                  className="accent-blue-600"
-                />
-                Checked by default
-              </label>
-            </div>
-          );
-        })}
-      </div>
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-      <Button
-        variant="tertiary"
-        size="sm"
-        onClick={() => onChange([...options, { label: "", value: "" }])}
-        className="mt-1 text-blue-600 hover:text-blue-800"
-      >
-        + Add option
-      </Button>
     </div>
   );
 }
@@ -476,6 +250,35 @@ function ValidationEditor({
   );
 }
 
+const TEXT_OPERATORS = { equals: "Equals", includes: "Includes" } as const;
+const NUMBER_OPERATORS = {
+  eq: "Equal",
+  lt: "Less than",
+  gt: "Greater than",
+  lte: "Less or equal",
+  gte: "Greater or equal",
+} as const;
+
+function buildDefaultCondition(
+  fieldName: string,
+  targetField: FormField,
+  logic: "and" | "or" = "or",
+): ConditionalVisibility {
+  switch (targetField.type) {
+    case "text":
+    case "textarea":
+      return { fieldName, logic, conditionType: "text", rules: [{ operator: "equals", value: "" }] };
+    case "number":
+      return { fieldName, logic, conditionType: "number", rules: [{ operator: "eq", value: 0 }] };
+    case "select":
+    case "radio":
+    case "checkbox":
+      return { fieldName, logic, conditionType: "choice", values: [] };
+    case "date":
+      return { fieldName, logic, conditionType: "date" };
+  }
+}
+
 function ConditionalEditor({
   condition,
   otherFields,
@@ -488,6 +291,15 @@ function ConditionalEditor({
   if (otherFields.length === 0) return null;
 
   const enabled = !!condition;
+  const targetField = enabled
+    ? otherFields.find((f) => f.name === condition.fieldName)
+    : undefined;
+
+  const handleFieldChange = (fieldName: string) => {
+    const newTarget = otherFields.find((f) => f.name === fieldName);
+    if (!newTarget) return;
+    onChange(buildDefaultCondition(fieldName, newTarget, condition?.logic));
+  };
 
   return (
     <div>
@@ -500,7 +312,8 @@ function ConditionalEditor({
         checked={enabled}
         onChange={(e) => {
           if (e.target.checked) {
-            onChange({ fieldName: otherFields[0].name, value: "" });
+            const target = otherFields[0];
+            onChange(buildDefaultCondition(target.name, target));
           } else {
             onChange(undefined);
           }
@@ -512,9 +325,7 @@ function ConditionalEditor({
           <Select
             label="Show when field"
             value={condition.fieldName}
-            onChange={(e) =>
-              onChange({ ...condition, fieldName: e.target.value })
-            }
+            onChange={(e) => handleFieldChange(e.target.value)}
           >
             {otherFields.map((f) => (
               <option key={f.id} value={f.name}>
@@ -522,15 +333,303 @@ function ConditionalEditor({
               </option>
             ))}
           </Select>
-          <TextField
-            label="Equals value"
-            value={String(condition.value)}
-            onChange={(e) =>
-              onChange({ ...condition, value: e.target.value })
-            }
-          />
+
+          {condition.conditionType === "text" && (
+            <TextConditionEditor
+              rules={condition.rules}
+              logic={condition.logic}
+              onChange={(rules, logic) =>
+                onChange({ ...condition, rules, logic } as ConditionalVisibility)
+              }
+            />
+          )}
+
+          {condition.conditionType === "number" && (
+            <NumberConditionEditor
+              rules={condition.rules}
+              logic={condition.logic}
+              onChange={(rules, logic) =>
+                onChange({ ...condition, rules, logic } as ConditionalVisibility)
+              }
+            />
+          )}
+
+          {condition.conditionType === "choice" && targetField && (
+            <ChoiceConditionEditor
+              values={condition.values}
+              targetField={targetField}
+              logic={condition.logic}
+              onChange={(values, logic) =>
+                onChange({ ...condition, values, logic } as ConditionalVisibility)
+              }
+            />
+          )}
+
+          {condition.conditionType === "date" && (
+            <DateConditionEditor
+              start={condition.start}
+              end={condition.end}
+              onChange={(start, end) =>
+                onChange({ ...condition, start, end } as ConditionalVisibility)
+              }
+            />
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+function LogicToggle({
+  logic,
+  onChange,
+}: {
+  logic: "and" | "or";
+  onChange: (logic: "and" | "or") => void;
+}) {
+  return (
+    <Select
+      label="Match"
+      value={logic}
+      onChange={(e) => onChange(e.target.value as "and" | "or")}
+      className="w-32"
+    >
+      <option value="or">Any (OR)</option>
+      <option value="and">All (AND)</option>
+    </Select>
+  );
+}
+
+function TextConditionEditor({
+  rules,
+  logic,
+  onChange,
+}: {
+  rules: TextConditionRule[];
+  logic: "and" | "or";
+  onChange: (rules: TextConditionRule[], logic: "and" | "or") => void;
+}) {
+  const updateRule = (idx: number, updates: Partial<TextConditionRule>) => {
+    const next = [...rules];
+    next[idx] = { ...next[idx], ...updates };
+    onChange(next, logic);
+  };
+
+  const removeRule = (idx: number) => {
+    onChange(rules.filter((_, i) => i !== idx), logic);
+  };
+
+  return (
+    <div className="space-y-2">
+      {rules.length > 1 && (
+        <LogicToggle logic={logic} onChange={(l) => onChange(rules, l)} />
+      )}
+      {rules.map((rule, idx) => (
+        <div key={idx} className="flex gap-2 items-end">
+          <Select
+            label="Operator"
+            hideLabel={idx > 0}
+            value={rule.operator}
+            onChange={(e) =>
+              updateRule(idx, {
+                operator: e.target.value as TextConditionRule["operator"],
+              })
+            }
+            className="w-28"
+          >
+            {Object.entries(TEXT_OPERATORS).map(([k, label]) => (
+              <option key={k} value={k}>
+                {label}
+              </option>
+            ))}
+          </Select>
+          <TextField
+            label="Value"
+            hideLabel={idx > 0}
+            value={rule.value}
+            onChange={(e) => updateRule(idx, { value: e.target.value })}
+            className="flex-1"
+          />
+          {rules.length > 1 && (
+            <Button
+              variant="tertiary"
+              size="sm"
+              onClick={() => removeRule(idx)}
+              className="text-red-400 hover:text-red-600 shrink-0"
+            >
+              ✕
+            </Button>
+          )}
+        </div>
+      ))}
+      <Button
+        variant="tertiary"
+        size="sm"
+        onClick={() => onChange([...rules, { operator: "equals", value: "" }], logic)}
+        className="text-blue-600 hover:text-blue-800"
+      >
+        + Add condition
+      </Button>
+    </div>
+  );
+}
+
+function NumberConditionEditor({
+  rules,
+  logic,
+  onChange,
+}: {
+  rules: NumberConditionRule[];
+  logic: "and" | "or";
+  onChange: (rules: NumberConditionRule[], logic: "and" | "or") => void;
+}) {
+  const updateRule = (idx: number, updates: Partial<NumberConditionRule>) => {
+    const next = [...rules];
+    next[idx] = { ...next[idx], ...updates };
+    onChange(next, logic);
+  };
+
+  const removeRule = (idx: number) => {
+    onChange(rules.filter((_, i) => i !== idx), logic);
+  };
+
+  return (
+    <div className="space-y-2">
+      {rules.length > 1 && (
+        <LogicToggle logic={logic} onChange={(l) => onChange(rules, l)} />
+      )}
+      {rules.map((rule, idx) => (
+        <div key={idx} className="flex gap-2 items-end">
+          <Select
+            label="Operator"
+            hideLabel={idx > 0}
+            value={rule.operator}
+            onChange={(e) =>
+              updateRule(idx, {
+                operator: e.target.value as NumberConditionRule["operator"],
+              })
+            }
+            className="w-36"
+          >
+            {Object.entries(NUMBER_OPERATORS).map(([k, label]) => (
+              <option key={k} value={k}>
+                {label}
+              </option>
+            ))}
+          </Select>
+          <TextField
+            label="Value"
+            hideLabel={idx > 0}
+            type="number"
+            value={rule.value}
+            onChange={(e) =>
+              updateRule(idx, {
+                value: e.target.value === "" ? 0 : Number(e.target.value),
+              })
+            }
+            className="flex-1"
+          />
+          {rules.length > 1 && (
+            <Button
+              variant="tertiary"
+              size="sm"
+              onClick={() => removeRule(idx)}
+              className="text-red-400 hover:text-red-600 shrink-0"
+            >
+              ✕
+            </Button>
+          )}
+        </div>
+      ))}
+      <Button
+        variant="tertiary"
+        size="sm"
+        onClick={() => onChange([...rules, { operator: "eq", value: 0 }], logic)}
+        className="text-blue-600 hover:text-blue-800"
+      >
+        + Add condition
+      </Button>
+    </div>
+  );
+}
+
+function ChoiceConditionEditor({
+  values,
+  targetField,
+  logic,
+  onChange,
+}: {
+  values: string[];
+  targetField: FormField;
+  logic: "and" | "or";
+  onChange: (values: string[], logic: "and" | "or") => void;
+}) {
+  const options = "options" in targetField ? targetField.options : [];
+
+  const toggle = (value: string, checked: boolean) => {
+    const next = checked
+      ? [...values, value]
+      : values.filter((v) => v !== value);
+    onChange(next, logic);
+  };
+
+  return (
+    <div className="space-y-2">
+      {options.length > 1 && (
+        <LogicToggle logic={logic} onChange={(l) => onChange(values, l)} />
+      )}
+      <span className="block text-sm font-medium text-zinc-600">
+        Has value
+      </span>
+      <div className="space-y-1">
+        {options.map((opt) => (
+          <Checkbox
+            key={opt.value}
+            label={opt.label || opt.value}
+            checked={values.includes(opt.value)}
+            onChange={(e) => toggle(opt.value, e.target.checked)}
+          />
+        ))}
+        {options.length === 0 && (
+          <p className="text-xs text-zinc-400">
+            No options defined on the target field.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DateConditionEditor({
+  start,
+  end,
+  onChange,
+}: {
+  start?: string;
+  end?: string;
+  onChange: (start?: string, end?: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <span className="block text-sm font-medium text-zinc-600">
+        Date range
+      </span>
+      <div className="flex gap-3">
+        <TextField
+          label="From"
+          type="date"
+          value={start ?? ""}
+          onChange={(e) => onChange(e.target.value || undefined, end)}
+          className="flex-1"
+        />
+        <TextField
+          label="To"
+          type="date"
+          value={end ?? ""}
+          onChange={(e) => onChange(start, e.target.value || undefined)}
+          className="flex-1"
+        />
+      </div>
     </div>
   );
 }

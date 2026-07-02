@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { FormSchema, FormField } from "@/types/form-schema";
-import { buildZodSchema, getDefaultValues } from "@/utils/validation";
+import { buildZodSchema, getDefaultValues, isFieldVisible } from "@/utils/validation";
 import { mockSubmit, type SubmitResult } from "@/utils/mock-submit";
 import { TextField } from "./ui/TextField";
 import { Select } from "./ui/Select";
@@ -43,18 +43,12 @@ export function FormPreview({ schema }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<SubmitResult | null>(null);
 
-  const isVisible = (field: FormField) => {
-    if (!field.conditionalVisibility) return true;
-    const { fieldName, value } = field.conditionalVisibility;
-    return String(watchedValues[fieldName] ?? "") === String(value);
-  };
-
   const onSubmit = async (data: Record<string, unknown>) => {
     setSubmitting(true);
     setResult(null);
     const visibleData: Record<string, unknown> = {};
     for (const field of fields) {
-      if (field.name && isVisible(field)) {
+      if (field.name && isFieldVisible(field, watchedValues)) {
         visibleData[field.name] = data[field.name];
       }
     }
@@ -76,7 +70,7 @@ export function FormPreview({ schema }: Props) {
       ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
           {fields.map((field) => {
-            if (!field.name || !isVisible(field)) return null;
+            if (!field.name || !isFieldVisible(field, watchedValues)) return null;
             return (
               <PreviewField
                 key={field.id}

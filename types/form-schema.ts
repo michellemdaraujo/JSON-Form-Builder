@@ -30,10 +30,25 @@ export type ValidationRule = {
   custom?: CustomRule;
 };
 
+export type TextConditionRule = {
+  operator: "equals" | "includes";
+  value: string;
+};
+
+export type NumberConditionRule = {
+  operator: "eq" | "lt" | "gt" | "lte" | "gte";
+  value: number;
+};
+
 export type ConditionalVisibility = {
   fieldName: string;
-  value: string | number | boolean;
-};
+  logic: "and" | "or";
+} & (
+  | { conditionType: "text"; rules: TextConditionRule[] }
+  | { conditionType: "number"; rules: NumberConditionRule[] }
+  | { conditionType: "choice"; values: string[] }
+  | { conditionType: "date"; start?: string; end?: string }
+);
 
 type BaseField = {
   id: string;

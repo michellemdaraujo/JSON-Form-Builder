@@ -1,8 +1,42 @@
 "use client";
 
-import type { FormField } from "@/types/form-schema";
+import type { FormField, ConditionalVisibility } from "@/types/form-schema";
 import { FIELD_TYPES, CUSTOM_RULES } from "@/types/form-schema";
 import { Button } from "./ui/Button";
+
+const OPERATOR_LABELS: Record<string, string> = {
+  equals: "equals",
+  includes: "includes",
+  eq: "=",
+  lt: "<",
+  gt: ">",
+  lte: "<=",
+  gte: ">=",
+};
+
+function formatConditionSummary(cv: ConditionalVisibility): string {
+  const joiner = cv.logic === "and" ? " AND " : " OR ";
+  const prefix = `Visible when ${cv.fieldName} `;
+
+  switch (cv.conditionType) {
+    case "text":
+      return prefix + cv.rules
+        .map((r) => `${OPERATOR_LABELS[r.operator]} "${r.value}"`)
+        .join(joiner);
+    case "number":
+      return prefix + cv.rules
+        .map((r) => `${OPERATOR_LABELS[r.operator]} ${r.value}`)
+        .join(joiner);
+    case "choice":
+      return prefix + `is ${cv.values.join(joiner)}`;
+    case "date": {
+      if (cv.start && cv.end) return prefix + `between ${cv.start} and ${cv.end}`;
+      if (cv.start) return prefix + `from ${cv.start}`;
+      if (cv.end) return prefix + `until ${cv.end}`;
+      return prefix + "has date";
+    }
+  }
+}
 
 type Props = {
   field: FormField;
@@ -92,8 +126,7 @@ export function FieldCard({ field, onEdit, onDelete, dragHandleProps }: Props) {
               )}
               {field.conditionalVisibility && (
                 <p className="text-sm text-zinc-500 italic">
-                  Visible when {field.conditionalVisibility.fieldName} ={" "}
-                  {String(field.conditionalVisibility.value)}
+                  {formatConditionSummary(field.conditionalVisibility)}
                 </p>
               )}
             </>
