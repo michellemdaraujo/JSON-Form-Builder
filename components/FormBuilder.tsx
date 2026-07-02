@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   DndContext,
   closestCenter,
@@ -22,6 +22,7 @@ import type { FormSchema, FormField, FieldType } from "@/types/form-schema";
 import { DEFAULT_SCHEMA } from "@/utils/default-schema";
 import { saveSchema, loadSchema, clearSchema } from "@/utils/storage";
 import { TextField } from "./ui/TextField";
+import { Checkbox } from "./ui/Checkbox";
 import { Button } from "./ui/Button";
 import { FieldCard } from "./FieldCard";
 import { AddFieldInsert } from "./AddFieldInsert";
@@ -80,12 +81,34 @@ export function FormBuilder() {
   const [sidebar, setSidebar] = useState<SidebarState | null>(null);
   const [storageMsg, setStorageMsg] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [autoSave, setAutoSave] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("json-form-builder-autosave") === "true";
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
+  );
+
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout>>(null);
+
+  function flash(msg: string) {
+    setStorageMsg(msg);
+    setTimeout(() => setStorageMsg(null), 2000);
+  }
+
+  const debouncedAutoSave = useCallback(
+    (schemaToSave: FormSchema) => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+      autoSaveTimer.current = setTimeout(() => {
+        saveSchema(schemaToSave);
+        flash("Saved!");
+      }, 500);
+    },
+    [],
   );
 
   const updateFields = useCallback(
@@ -114,40 +137,47 @@ export function FormBuilder() {
   const handleSidebarSave = useCallback(
     (field: FormField) => {
       if (!sidebar) return;
-      if (sidebar.mode === "create") {
-        updateFields((fields) => {
-          const next = [...fields];
-          next.splice(sidebar.insertIndex, 0, field);
-          return next;
-        });
-      } else {
-        updateFields((fields) =>
-          fields.map((f) => (f.id === field.id ? field : f)),
-        );
-      }
+      setSchema((prev) => {
+        let nextFields: FormField[];
+        if (sidebar.mode === "create") {
+          nextFields = [...prev.fields];
+          nextFields.splice(sidebar.insertIndex, 0, field);
+        } else {
+          nextFields = prev.fields.map((f) => (f.id === field.id ? field : f));
+        }
+        const next = { ...prev, fields: nextFields };
+        if (autoSave) debouncedAutoSave(next);
+        return next;
+      });
       setSidebar(null);
     },
-    [sidebar, updateFields],
+    [sidebar, autoSave, debouncedAutoSave],
   );
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
       if (over && active.id !== over.id) {
-        updateFields((fields) => {
-          const oldIndex = fields.findIndex((f) => f.id === active.id);
-          const newIndex = fields.findIndex((f) => f.id === over.id);
-          return arrayMove(fields, oldIndex, newIndex);
+        setSchema((prev) => {
+          const oldIndex = prev.fields.findIndex((f) => f.id === active.id);
+          const newIndex = prev.fields.findIndex((f) => f.id === over.id);
+          const next = { ...prev, fields: arrayMove(prev.fields, oldIndex, newIndex) };
+          if (autoSave) debouncedAutoSave(next);
+          return next;
         });
       }
     },
-    [updateFields],
+    [autoSave, debouncedAutoSave],
   );
 
-  function flash(msg: string) {
-    setStorageMsg(msg);
-    setTimeout(() => setStorageMsg(null), 2000);
-  }
+  const toggleAutoSave = (enabled: boolean) => {
+    setAutoSave(enabled);
+    localStorage.setItem("json-form-builder-autosave", String(enabled));
+    if (enabled) {
+      saveSchema(schema);
+      flash("Auto-save on");
+    }
+  };
 
   const handleSave = () => {
     saveSchema(schema);
@@ -226,6 +256,11 @@ export function FormBuilder() {
           <Button variant="tertiary" onClick={handleSave}>
             Save
           </Button>
+          <Checkbox
+            label="Auto-save"
+            checked={autoSave}
+            onChange={(e) => toggleAutoSave(e.target.checked)}
+          />
           <Button
             variant="tertiary"
             onClick={() => setConfirmAction({ type: "load" })}
