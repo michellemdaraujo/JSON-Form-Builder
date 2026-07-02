@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { Button } from "./Button";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 
 type Props = {
   title: string;
@@ -20,6 +21,8 @@ export function ConfirmModal({
   onConfirm,
   onCancel,
 }: Props) {
+  const trapRef = useFocusTrap<HTMLDivElement>();
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onCancel();
@@ -34,6 +37,10 @@ export function ConfirmModal({
 
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
+          ref={trapRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
           className="bg-white rounded-lg shadow-xl w-full max-w-sm p-5"
           onClick={(e) => e.stopPropagation()}
         >

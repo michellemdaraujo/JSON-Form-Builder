@@ -5,6 +5,7 @@ import type { FormField } from "@/types/form-schema";
 import { FieldEditor } from "./FieldEditor";
 import { Button } from "./ui/Button";
 import { ConfirmModal } from "./ui/ConfirmModal";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 
 type Props = {
   mode: "create" | "edit";
@@ -68,6 +69,7 @@ export function EditorSidebar({
   const [draft, setDraft] = useState<FormField>(initialField);
   const [submitted, setSubmitted] = useState(false);
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
+  const trapRef = useFocusTrap<HTMLDivElement>();
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(initialField);
 
@@ -81,11 +83,11 @@ export function EditorSidebar({
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") tryClose();
+      if (e.key === "Escape" && !showUnsavedPrompt) tryClose();
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [tryClose]);
+  }, [tryClose, showUnsavedPrompt]);
 
   const handleUpdate = (updates: Partial<FormField>) => {
     setDraft((prev) => ({ ...prev, ...updates }) as FormField);
@@ -104,7 +106,13 @@ export function EditorSidebar({
     <>
       <div className="fixed inset-0 bg-black/20 z-40" onClick={tryClose} />
 
-      <div className="fixed left-0 top-0 h-full w-full md:w-105 bg-white shadow-xl z-50 flex flex-col border-r border-zinc-200">
+      <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={mode === "create" ? "Add Field" : "Edit Field"}
+        className="fixed left-0 top-0 h-full w-full md:w-105 bg-white shadow-xl z-50 flex flex-col border-r border-zinc-200"
+      >
         <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-200 shrink-0">
           <h2 className="text-base font-semibold text-zinc-800">
             {mode === "create" ? "Add Field" : "Edit Field"}
