@@ -17,6 +17,9 @@ const validationSchema = z.object({
   max: z.number().optional(),
   regex: z.string().optional(),
   custom: z.enum(["email", "url", "lettersOnly"] as [string, ...string[]]).optional(),
+  minDate: z.string().optional(),
+  maxDate: z.string().optional(),
+  dateRestriction: z.enum(["past", "future"]).optional(),
 });
 
 const textRuleSchema = z.object({

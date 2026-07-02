@@ -124,6 +124,21 @@ export function FieldCard({ field, onEdit, onDelete, dragHandleProps }: Props) {
                   {CUSTOM_RULES[field.validation.custom]}
                 </p>
               )}
+              {field.validation?.dateRestriction && (
+                <p className="text-sm text-zinc-600">
+                  {field.validation.dateRestriction === "future" ? "Future dates only" : "Past dates only"}
+                </p>
+              )}
+              {field.validation?.minDate && (
+                <p className="text-sm text-zinc-600">
+                  From: {field.validation.minDate}
+                </p>
+              )}
+              {field.validation?.maxDate && (
+                <p className="text-sm text-zinc-600">
+                  Until: {field.validation.maxDate}
+                </p>
+              )}
               {field.conditionalVisibility && (
                 <p className="text-sm text-zinc-500 italic">
                   {formatConditionSummary(field.conditionalVisibility)}

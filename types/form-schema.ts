@@ -28,6 +28,9 @@ export type ValidationRule = {
   max?: number;
   regex?: string;
   custom?: CustomRule;
+  minDate?: string;
+  maxDate?: string;
+  dateRestriction?: "past" | "future";
 };
 
 export type TextConditionRule = {

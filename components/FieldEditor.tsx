@@ -175,15 +175,16 @@ function ValidationEditor({
   const v = validation ?? {};
   const set = (updates: Partial<ValidationRule>) => {
     const next = { ...v, ...updates };
-    const isEmpty = next.min == null && next.max == null && !next.regex && !next.custom;
+    const isEmpty = next.min == null && next.max == null && !next.regex && !next.custom && !next.minDate && !next.maxDate;
     onChange(isEmpty ? undefined : next);
   };
 
   const showMinMax = fieldType === "text" || fieldType === "textarea" || fieldType === "number";
   const showRegex = fieldType === "text" || fieldType === "textarea";
   const showCustom = fieldType === "text" || fieldType === "textarea";
+  const showDateRange = fieldType === "date";
 
-  if (!showMinMax && !showRegex && !showCustom) return null;
+  if (!showMinMax && !showRegex && !showCustom && !showDateRange) return null;
 
   const minLabel = fieldType === "number" ? "Min Value" : "Min Length";
   const maxLabel = fieldType === "number" ? "Max Value" : "Max Length";
@@ -215,6 +216,46 @@ function ValidationEditor({
               className="w-28"
             />
           </div>
+        )}
+        {showDateRange && (
+          <>
+            <div className="flex gap-4">
+              <Checkbox
+                label="Only allow future dates"
+                checked={v.dateRestriction === "future"}
+                onChange={(e) =>
+                  set({ dateRestriction: e.target.checked ? "future" : undefined })
+                }
+              />
+              <Checkbox
+                label="Only allow past dates"
+                checked={v.dateRestriction === "past"}
+                onChange={(e) =>
+                  set({ dateRestriction: e.target.checked ? "past" : undefined })
+                }
+              />
+            </div>
+            <div className="flex gap-3">
+              <TextField
+                label="Min Date"
+                type="date"
+                value={v.minDate ?? ""}
+                onChange={(e) =>
+                  set({ minDate: e.target.value || undefined })
+                }
+                className="flex-1"
+              />
+              <TextField
+                label="Max Date"
+                type="date"
+                value={v.maxDate ?? ""}
+                onChange={(e) =>
+                  set({ maxDate: e.target.value || undefined })
+                }
+                className="flex-1"
+              />
+            </div>
+          </>
         )}
         {error && <p className="text-xs text-red-500">{error}</p>}
 

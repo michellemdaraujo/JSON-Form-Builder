@@ -250,6 +250,22 @@ function PreviewField({
       ? register(field.name, { setValueAs: (v: string) => v === "" ? undefined : Number(v) })
       : register(field.name);
 
+  const dateProps: Record<string, string> = {};
+  if (field.type === "date") {
+    const { minDate, maxDate, dateRestriction } = field.validation ?? {};
+    const today = new Date().toISOString().slice(0, 10);
+    if (dateRestriction === "future") {
+      dateProps.min = minDate && minDate > today ? minDate : today;
+    } else if (minDate) {
+      dateProps.min = minDate;
+    }
+    if (dateRestriction === "past") {
+      dateProps.max = maxDate && maxDate < today ? maxDate : today;
+    } else if (maxDate) {
+      dateProps.max = maxDate;
+    }
+  }
+
   return (
     <TextField
       label={fieldLabel}
@@ -257,6 +273,7 @@ function PreviewField({
       placeholder={field.placeholder}
       helpText={field.helpText}
       error={error}
+      {...dateProps}
       {...reg}
     />
   );

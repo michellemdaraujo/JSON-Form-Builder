@@ -34,14 +34,45 @@ function applyStringValidation(
 function buildFieldSchema(field: FormField): z.ZodType {
   switch (field.type) {
     case "text":
-    case "textarea":
-    case "date": {
+    case "textarea": {
       let s = z.string();
       s = applyStringValidation(s, field);
       if (field.required) {
         s = s.min(1, `${field.label} is required`);
       }
       return field.required ? s : s.or(z.literal(""));
+    }
+    case "date": {
+      let s = z.string();
+      if (field.required) {
+        s = s.min(1, `${field.label} is required`);
+      }
+      const base = field.required ? s : s.or(z.literal(""));
+      const { minDate, maxDate, dateRestriction } = field.validation ?? {};
+      if (minDate || maxDate || dateRestriction) {
+        return base.check(
+          z.refine((val) => {
+            if (!val) return true;
+            const today = new Date().toISOString().slice(0, 10);
+            const effectiveMin = dateRestriction === "future" ? (minDate && minDate > today ? minDate : today) : minDate;
+            const effectiveMax = dateRestriction === "past" ? (maxDate && maxDate < today ? maxDate : today) : maxDate;
+            if (effectiveMin && val < effectiveMin) return false;
+            if (effectiveMax && val > effectiveMax) return false;
+            return true;
+          }, {
+            message: dateRestriction === "future"
+              ? "Date must be today or later"
+              : dateRestriction === "past"
+                ? "Date must be today or earlier"
+                : minDate && maxDate
+                  ? `Date must be between ${minDate} and ${maxDate}`
+                  : minDate
+                    ? `Date must be ${minDate} or later`
+                    : `Date must be ${maxDate} or earlier`,
+          }),
+        );
+      }
+      return base;
     }
     case "number": {
       let n = z.number({ message: "Must be a number" });
