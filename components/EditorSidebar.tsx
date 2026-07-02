@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import type { FormField } from "@/types/form-schema";
 import { FieldEditor } from "./FieldEditor";
 import { Button } from "./ui/Button";
+import { ConfirmModal } from "./ui/ConfirmModal";
 
 type Props = {
   mode: "create" | "edit";
@@ -66,14 +67,25 @@ export function EditorSidebar({
 }: Props) {
   const [draft, setDraft] = useState<FormField>(initialField);
   const [submitted, setSubmitted] = useState(false);
+  const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
+
+  const isDirty = JSON.stringify(draft) !== JSON.stringify(initialField);
+
+  const tryClose = useCallback(() => {
+    if (isDirty) {
+      setShowUnsavedPrompt(true);
+    } else {
+      onClose();
+    }
+  }, [isDirty, onClose]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") tryClose();
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [tryClose]);
 
   const handleUpdate = (updates: Partial<FormField>) => {
     setDraft((prev) => ({ ...prev, ...updates }) as FormField);
@@ -90,14 +102,14 @@ export function EditorSidebar({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/20 z-40" onClick={tryClose} />
 
       <div className="fixed left-0 top-0 h-full w-full md:w-105 bg-white shadow-xl z-50 flex flex-col border-r border-zinc-200">
         <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-200 shrink-0">
           <h2 className="text-base font-semibold text-zinc-800">
             {mode === "create" ? "Add Field" : "Edit Field"}
           </h2>
-          <Button variant="tertiary" size="sm" onClick={onClose}>
+          <Button variant="tertiary" size="sm" onClick={tryClose}>
             ✕
           </Button>
         </div>
@@ -112,7 +124,7 @@ export function EditorSidebar({
         </div>
 
         <div className="border-t border-zinc-200 px-5 py-3 flex justify-end gap-2 shrink-0">
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={tryClose}>
             Cancel
           </Button>
           <Button variant="primary" onClick={handleSubmit}>
@@ -120,6 +132,23 @@ export function EditorSidebar({
           </Button>
         </div>
       </div>
+
+      {showUnsavedPrompt && (
+        <ConfirmModal
+          title="Unsaved Changes"
+          message="You have unsaved changes. Do you want to save before closing?"
+          confirmLabel="Save"
+          onConfirm={() => {
+            setSubmitted(true);
+            if (isValid) {
+              onSave(draft);
+            } else {
+              setShowUnsavedPrompt(false);
+            }
+          }}
+          onCancel={onClose}
+        />
+      )}
     </>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   DndContext,
   closestCenter,
@@ -183,6 +183,18 @@ export function FormBuilder() {
     saveSchema(schema);
     flash("Saved!");
   };
+
+  useEffect(() => {
+    if (autoSave) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      const saved = loadSchema();
+      if (JSON.stringify(schema) !== JSON.stringify(saved)) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [schema, autoSave]);
 
   const handleLoad = () => {
     const saved = loadSchema();
