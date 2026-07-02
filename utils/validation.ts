@@ -74,11 +74,38 @@ function buildFieldSchema(field: FormField): z.ZodType {
   }
 }
 
-export function buildZodSchema(fields: FormField[]) {
+function isFieldVisible(
+  field: FormField,
+  values: Record<string, unknown>,
+): boolean {
+  if (!field.conditionalVisibility) return true;
+  const { fieldName, value } = field.conditionalVisibility;
+  return String(values[fieldName] ?? "") === String(value);
+}
+
+function buildPermissiveSchema(field: FormField): z.ZodType {
+  switch (field.type) {
+    case "checkbox":
+      return z.array(z.string()).default([]);
+    case "number":
+      return z.number().optional();
+    default:
+      return z.string().optional().or(z.literal(""));
+  }
+}
+
+export function buildZodSchema(
+  fields: FormField[],
+  currentValues?: Record<string, unknown>,
+) {
   const shape: Record<string, z.ZodType> = {};
   for (const field of fields) {
     if (!field.name) continue;
-    shape[field.name] = buildFieldSchema(field);
+    if (currentValues && !isFieldVisible(field, currentValues)) {
+      shape[field.name] = buildPermissiveSchema(field);
+    } else {
+      shape[field.name] = buildFieldSchema(field);
+    }
   }
   return z.object(shape);
 }

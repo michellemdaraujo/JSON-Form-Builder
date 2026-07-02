@@ -18,7 +18,6 @@ type Props = {
 export function FormPreview({ schema }: Props) {
   const { fields } = schema;
 
-  const zodSchema = useMemo(() => buildZodSchema(fields), [fields]);
   const defaultValues = useMemo(() => getDefaultValues(fields), [fields]);
 
   const {
@@ -28,7 +27,10 @@ export function FormPreview({ schema }: Props) {
     reset,
     formState: { errors },
   } = useForm({
-    resolver: zodResolver(zodSchema),
+    resolver: (values, context, options) => {
+      const zodSchema = buildZodSchema(fields, values);
+      return zodResolver(zodSchema)(values, context, options);
+    },
     defaultValues,
     mode: "onBlur",
   });
@@ -41,18 +43,24 @@ export function FormPreview({ schema }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<SubmitResult | null>(null);
 
-  const onSubmit = async (data: Record<string, unknown>) => {
-    setSubmitting(true);
-    setResult(null);
-    const res = await mockSubmit(data);
-    setResult(res);
-    setSubmitting(false);
-  };
-
   const isVisible = (field: FormField) => {
     if (!field.conditionalVisibility) return true;
     const { fieldName, value } = field.conditionalVisibility;
     return String(watchedValues[fieldName] ?? "") === String(value);
+  };
+
+  const onSubmit = async (data: Record<string, unknown>) => {
+    setSubmitting(true);
+    setResult(null);
+    const visibleData: Record<string, unknown> = {};
+    for (const field of fields) {
+      if (field.name && isVisible(field)) {
+        visibleData[field.name] = data[field.name];
+      }
+    }
+    const res = await mockSubmit(visibleData);
+    setResult(res);
+    setSubmitting(false);
   };
 
   return (
