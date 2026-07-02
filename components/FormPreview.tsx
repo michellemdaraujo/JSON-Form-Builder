@@ -15,8 +15,18 @@ type Props = {
   schema: FormSchema;
 };
 
+function useDebounced<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
 export function FormPreview({ schema }: Props) {
-  const { fields } = schema;
+  const debouncedSchema = useDebounced(schema, 300);
+  const { fields } = debouncedSchema;
 
   const defaultValues = useMemo(() => getDefaultValues(fields), [fields]);
 
